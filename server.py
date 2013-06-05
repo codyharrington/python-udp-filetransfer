@@ -11,23 +11,17 @@ import struct # packs and unpacks values to/from literal bytes
 import random
 
 class Server(object):
-    
     def __init__(self):
         """Start up the server"""
         # This must be the address that the server is running on
         self.ip = gethostbyname(gethostname()) # Change this as needed
         self.port, self.p_err = self.get_args()
         self.address = (self.ip, self.port)
-        
-        # Allocate the buffer
         self.buffer_ = 2048 # Change as needed
         self.udp_socket = self.init_socket()
-        
         self.epoch_number = self.get_epoch_number();
         self.handle_number = 0
-        
         self.context_record = {}
-        
         self.listen()
         
     
@@ -45,11 +39,9 @@ class Server(object):
         try:
             port = int(sys.argv[1])
             p_err = float(sys.argv[2])
-            
         except ValueError:
             print "Port must be a number only, and p_err must only be a float."
             sys.exit("Usage:\n\nserver.py port p_err\n\nWhere port is a number between 1024 and 60000,\n and p_err is a float between 0 and 1")
-            
         except IndexError:
             print "A port number and an error probability value p_err must be provided."
             sys.exit("Usage:\n\nserver.py port p_err\n\nWhere port is a number between 1024 and 60000,\n and p_err is a float between 0 and 1")
@@ -57,7 +49,6 @@ class Server(object):
         if any([port < 1024, port > 60000, p_err < 0, p_err > 1]):
             print "Port must be between 1024 and 60000, and p_err must be between 0 and 1"
             sys.exit("Usage:\n\nserver.py port p_err\n\nWhere port is a number between 1024 and 60000,\n and p_err is a float between 0 and 1")
-            
         else:
             return port, p_err
             
@@ -65,10 +56,9 @@ class Server(object):
     def init_socket(self):
         """Creates socket for use. Returns an active UDP socket."""
         udp_socket = socket(AF_INET, SOCK_DGRAM)
-        
         udp_socket.bind(self.address)
         udp_socket.setblocking(True)
-    
+        
         return udp_socket
             
     
@@ -83,14 +73,13 @@ class Server(object):
         if not os.path.isfile('epoch.number'):
             epoch_number = 1
             f = open('epoch.number', 'w')
-            
         else:
             f = open('epoch.number', 'r+')
             f_string = f.readline()
+        
             if f_string.isdigit():
                 epoch_number = int(f_string)
                 epoch_number += 1
-                
             else:
                 epoch_number = 1
                 
@@ -127,7 +116,6 @@ class Server(object):
         Note: ! denotes network byte order (big-endian).
         """
         print "Received open request from %s on port %d." % recv_addr
-        
         # After the header data is stripped, only the file name f_name is left
         (f_name,) = struct.unpack('!100s', packet)
         f_name = f_name.replace('\x00', "").strip()
@@ -146,7 +134,6 @@ class Server(object):
             self.context_record[f_handle_no] = (f_handle, init_time, ttl)
             self.update_context_record(f_handle_no)
             status = True
-            
         # If there is ANY error, set the status bit to 0.
         except Exception as exception_:
             print "Open response error:", exception_
@@ -155,7 +142,6 @@ class Server(object):
             f_handle_no = 0
             
         print "Client %s given handle %d" % recv_addr, f_handle_no
-        
         # Attach bit-signature and packet response type
         response_packet = struct.pack("!2I?Q2I", 0b1101, 0b1000, status, f_size, self.epoch_number, f_handle_no)
         self.udp_socket.sendto(response_packet, recv_addr)
@@ -187,21 +173,17 @@ class Server(object):
         """
         buff_size = 0
         read_buffer = 0
-        
         print "Received read request from %s on port %d." % recv_addr
         (recv_epoch_number, recv_handle_number, read_start_pos, read_size) = struct.unpack("!4I", packet)
-        
         # Returns False if f_handle doesn't exist in the context record
         f_handle = self.get_file_handle(recv_handle_number)
         
         if recv_epoch_number != self.epoch_number:
             print "Epoch numbers do not match: Server = %d, Client = %d" % (self.epoch_number, recv_epoch_number)
             status = 0b01
-            
         elif not f_handle:
             print "Handle %d does not exist in context record." % recv_handle_number
             status = 0b10
-            
         else:
             status = 0b00
             try:
@@ -209,12 +191,11 @@ class Server(object):
                 f_handle.seek(read_start_pos)
                 read_buffer = f_handle.read(read_size)
                 buff_size = len(read_buffer)
-                
             except Exception as exception_:
                 print "Read response error:", exception_
                 status = 0b11
                 f_handle.close()
-                
+            
         response_header = struct.pack('!2IH3IQ', 0b1101, 0b0010, status, 
                                       self.epoch_number, recv_handle_number, 
                                       read_start_pos, buff_size)
@@ -248,16 +229,13 @@ class Server(object):
         if recv_epoch_number != self.epoch_number:
             print "Close error:\nEpoch numbers do not match: Server = %d, Client = %d"
             return
-        
         elif not f_handle:
             print "Close error: Handle %d does not exist in context record" % recv_handle_number
             return
-        
         else:
             try:
                 print "Closing file:", f_handle
                 f_handle.close()
-                
             except Exception as exception_:
                 print "Close error:", exception_
             
@@ -288,18 +266,16 @@ class Server(object):
         # Create an iterable list of items for the context record
         records = self.context_record.iteritems()
         expiry_list = []
-        
         for key, (f_han, i_time, time_tl) in records:
             if (clock() - i_time) > time_tl:
                 # If record has expired, add to list of records to be deleted
                 print "Handle %d has timed out." % key
                 expiry_list.append(key)
-        
+                
         # Update the TTL on the handle so it doesn't expire during transfer.       
         (f_han, i_time, time_tl) = self.context_record.get(handle_number)
         i_time = clock()
         self.context_record[handle_number] = (f_han, i_time, time_tl)
-        
         # Delete expired items
         for key in expiry_list:
             print "Deleting handle %d." % key
@@ -315,7 +291,6 @@ class Server(object):
             self.update_context_record(handle_number)
             (f_handle, init_time, ttl) = self.context_record[handle_number]
             return f_handle
-        
         else:
             return False
         
@@ -372,9 +347,7 @@ class Server(object):
         """
         print ("Listening at address %s on port %d." % (self.ip, self.port))
         while (1):
-            
             (packet_bytes, recv_addr) = self.udp_socket.recvfrom(self.buffer_)
-                
             if packet_bytes and (random.uniform(0,1) >= self.p_err):
                 self.parse_recv_data(packet_bytes, recv_addr)
             else:
