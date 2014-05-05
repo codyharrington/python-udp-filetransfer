@@ -1,10 +1,8 @@
-#python-udp-ftp
-==========
+#python-udp-filetransfer
 
-This was an assignment for COSC364 back in 2012 which implements a simple UDP file transfer protocol
-with retransmission. 
-
-I wrote the server, Josephine Lim wrote the client.
+This was an networking assignment. The idea was to create a server and client, where the client could download files
+from the server. Files are transferred over UDP, but packet retransmission is added. You can also force random packet
+drops too. 
 
 #### server.py
 
