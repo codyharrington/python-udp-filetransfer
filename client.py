@@ -1,7 +1,7 @@
 """
-@title client.py
-@author Josephine Lim
-@description Client for file transfer program (COSC 364)
+:title: client.py
+:author: Josephine Lim
+:description: Client to download files from server
 
 Summary of packet types:
 1 = 0b0001 = read request = \x00\x00\x00\x01

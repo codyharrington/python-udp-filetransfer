@@ -1,13 +1,13 @@
 """
-@title server.py
-@author Cody Harrington
-@description Server program for COSC364. 
+:title: server.py
+:author: Cody Harrington
+:description: Server program for the client to download files from
 """
 from time import clock
 from socket import *
 import os
 import sys
-import struct # packs and unpacks values to/from literal bytes
+import struct 
 import random
 
 class Server(object):
@@ -83,7 +83,6 @@ class Server(object):
             else:
                 epoch_number = 1
                 
-            # Go back to the start of the file so it can be overwritten
             f.seek(0)
             
         f.write(str(epoch_number))
@@ -100,23 +99,10 @@ class Server(object):
         Receives: 
         file_name
         
-        100 bytes
-        100 chars
-        
-        struct.pack("!100s", field)
-        
         Sends:
         Bit_signature packet_type status file_length epoch_number handle_number
-        
-        4bits + 4bits + 1 bit + 8 bits + 8 bits + 8 bits
-        int + int + bool + longlong + long + long
-        
-        struct.pack('!2I?Q2L', sequence of fields)
-        
-        Note: ! denotes network byte order (big-endian).
         """
         print "Received open request from %s on port %d." % recv_addr
-        # After the header data is stripped, only the file name f_name is left
         (f_name,) = struct.unpack('!100s', packet)
         f_name = f_name.replace('\x00', "").strip()
         
@@ -124,17 +110,13 @@ class Server(object):
             f_handle = open(f_name, "rb")
             print "Opened file:", f_name
             self.handle_number += 1
-            # Store the handle number so it isn't affected when the original
-            # is incremented.
             f_handle_no = self.handle_number
             f_size = os.path.getsize(f_name)
             ttl = 60
             init_time = clock()
-            # Store the file handle in the context record
             self.context_record[f_handle_no] = (f_handle, init_time, ttl)
             self.update_context_record(f_handle_no)
             status = True
-        # If there is ANY error, set the status bit to 0.
         except Exception as exception_:
             print "Open response error:", exception_
             status = False
@@ -142,7 +124,6 @@ class Server(object):
             f_handle_no = 0
             
         print "Client %s given handle %d" % recv_addr, f_handle_no
-        # Attach bit-signature and packet response type
         response_packet = struct.pack("!2I?Q2I", 0b1101, 0b1000, status, f_size, self.epoch_number, f_handle_no)
         self.udp_socket.sendto(response_packet, recv_addr)
         print "Sent open response."
@@ -155,21 +136,8 @@ class Server(object):
         Receives:
         recv_epoch_number, recv_handle_number, read_start_pos, read_size
         
-        ("!4I", sequence of fields)
-        
-        4bits + 4bits + 4 bits + 4bits
-        int + int + int + int
-        
         Sends:
         Bit_signature packet_type status epoch_number handle_number start_pos num_bytes_read bytes_read
-        
-        4bits + 4bits + 2 bits + 4 bits + 4 bits + 4 bits + 8 bits + variable
-        int + int + short + int + int + int + longlong + variable
-        
-        struct.pack('!2IH3IQ', sequence of fields) + bytes_read
-        
-        Note: ! denotes network byte order (big-endian).
-        
         """
         buff_size = 0
         read_buffer = 0
@@ -213,13 +181,6 @@ class Server(object):
       
         Receives:
         recv_epoch_number, recv_handle_number
-      
-        ("!2I", sequence of fields)
-      
-        4bits + 4bits
-        int + int
-      
-        Note: ! denotes network byte order (big-endian).
         """
         print "Received close request from %s on port %d." % recv_addr
         (recv_epoch_number, recv_handle_number) = struct.unpack("!2I", packet)
@@ -250,7 +211,6 @@ class Server(object):
         print packet
         print "---END---"
         
-        # Clear the packet
         packet = None
         
         print "Dropped packet."
@@ -263,20 +223,16 @@ class Server(object):
         The entire record is iterated through, and any records that are older 
         than their time_to_live value are deleted.
         """
-        # Create an iterable list of items for the context record
         records = self.context_record.iteritems()
         expiry_list = []
         for key, (f_han, i_time, time_tl) in records:
             if (clock() - i_time) > time_tl:
-                # If record has expired, add to list of records to be deleted
                 print "Handle %d has timed out." % key
                 expiry_list.append(key)
                 
-        # Update the TTL on the handle so it doesn't expire during transfer.       
         (f_han, i_time, time_tl) = self.context_record.get(handle_number)
         i_time = clock()
         self.context_record[handle_number] = (f_han, i_time, time_tl)
-        # Delete expired items
         for key in expiry_list:
             print "Deleting handle %d." % key
             del self.context_record[key]
@@ -297,15 +253,6 @@ class Server(object):
         
     def parse_recv_data(self, packet_bytes, recv_addr):
         """
-        Receives: 
-        ("!2I", 0b1101, 0b1000) +  payload
-        
-        Header 
-        4bits + 4bits
-        int + int
-        
-        Where ! indicates network byte order
-        
         When a packet is received, it is stripped of the header, and then the 
         payload is sent to the corresponding function to be processed, based on 
         the request_type field.
@@ -340,9 +287,7 @@ class Server(object):
     def listen(self):
         """
         Enters into an infinite loop and listens on the specified UDP socket.
-        
         If there is a packet, it is passed to a receiver function.
-        
         Drops a packet if the random error value > p_err.
         """
         print ("Listening at address %s on port %d." % (self.ip, self.port))
